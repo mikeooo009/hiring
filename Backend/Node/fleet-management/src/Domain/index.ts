@@ -1,0 +1,9 @@
+export { Fleet } from './Fleet';
+export { FleetId } from './FleetId';
+export { FleetVehicle } from './FleetVehicle';
+export { Location } from './Location';
+export { VehiclePlateNumber } from './VehiclePlateNumber';
+export { DomainError } from './errors/DomainError';
+export { VehicleAlreadyParkedAtLocationError } from './errors/VehicleAlreadyParkedAtLocationError';
+export { VehicleAlreadyRegisteredInFleetError } from './errors/VehicleAlreadyRegisteredInFleetError';
+export { VehicleNotRegisteredInFleetError } from './errors/VehicleNotRegisteredInFleetError';
