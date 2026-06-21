@@ -10,6 +10,9 @@ function fizzbuzz(n) {
 
   const result = [];
 
+
+  // Option 1
+  // complexity: O(n x rules)
   for (let i = 1; i <= n; i++) {
     const line = RULES
       .filter((rule) => i % rule.divisor === 0)
@@ -18,6 +21,21 @@ function fizzbuzz(n) {
 
     result.push(line || String(i));
   }
+  
+  
+  // Option 2
+  // complexity: O(n)
+  //  for (let i = 1; i <= n; i++) {
+   //   if (i % 3 === 0 && i % 5 === 0) {
+   //     result.push('FizzBuzz');
+   // } else if (i % 3 === 0) {
+   //   result.push('Fizz');
+   // } else if (i % 5 === 0) {
+   //   result.push('Buzz');
+   // } else {
+   //   result.push(String(i));
+   // }
+  //}
 
   return result;
 }
