@@ -1,21 +1,39 @@
+import { ActionDate } from './ActionDate';
 import { Location } from './Location';
 import { VehiclePlateNumber } from './VehiclePlateNumber';
 import { VehicleAlreadyParkedAtLocationError } from './errors/VehicleAlreadyParkedAtLocationError';
 
 export class FleetVehicle {
   private parkedAt: Location | null = null;
+  private parkedOn: ActionDate | null = null;
 
-  constructor(readonly plateNumber: VehiclePlateNumber) {}
+  constructor(
+    readonly plateNumber: VehiclePlateNumber,
+    readonly registeredAt: ActionDate
+  ) {}
 
-  parkAt(location: Location): void {
+  parkAt(location: Location, actionDate: ActionDate, referenceDate: ActionDate): void {
+    actionDate.assertNotInFuture(referenceDate);
+    actionDate.assertNotBeforeRegistration(this.registeredAt);
+
     if (this.parkedAt?.equals(location)) {
       throw new VehicleAlreadyParkedAtLocationError(this.plateNumber);
     }
+
     this.parkedAt = location;
+    this.parkedOn = actionDate;
   }
 
   getLocation(): Location | null {
     return this.parkedAt;
+  }
+
+  getRegisteredAt(): ActionDate {
+    return this.registeredAt;
+  }
+
+  getParkedOn(): ActionDate | null {
+    return this.parkedOn;
   }
 
   isParkedAt(location: Location): boolean {

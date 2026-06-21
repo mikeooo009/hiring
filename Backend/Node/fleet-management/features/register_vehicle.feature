@@ -4,6 +4,9 @@ Feature: Register a vehicle
     As an application user
     I should be able to register my vehicle
 
+    Background:
+        Given today is "2024-06-21"
+
     @critical
     Scenario: I can register a vehicle
         Given my fleet
@@ -25,3 +28,10 @@ Feature: Register a vehicle
         And this vehicle has been registered into the other user's fleet
         When I register this vehicle into my fleet
         Then this vehicle should be part of my vehicle fleet
+
+    Scenario: I can't register a vehicle with a future date
+        Given my fleet
+        And a vehicle
+        And the action date is "2024-06-22"
+        When I try to register this vehicle into my fleet
+        Then I should be informed that the action date cannot be in the future

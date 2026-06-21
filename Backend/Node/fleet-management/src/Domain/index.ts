@@ -1,11 +1,16 @@
+export { ActionDate } from './ActionDate';
 export { Fleet } from './Fleet';
 export { FleetId } from './FleetId';
 export { FleetRepository } from './FleetRepository';
 export { FleetVehicle } from './FleetVehicle';
 export { Location } from './Location';
 export { VehiclePlateNumber } from './VehiclePlateNumber';
+export { LocationOccupancy } from './LocationOccupancy';
 export { DomainError } from './errors/DomainError';
+export { ActionDateBeforeRegistrationError } from './errors/ActionDateBeforeRegistrationError';
 export { FleetNotFoundError } from './errors/FleetNotFoundError';
+export { FutureActionDateError } from './errors/FutureActionDateError';
+export { LocationAlreadyOccupiedError } from './errors/LocationAlreadyOccupiedError';
 export { VehicleAlreadyParkedAtLocationError } from './errors/VehicleAlreadyParkedAtLocationError';
 export { VehicleAlreadyRegisteredInFleetError } from './errors/VehicleAlreadyRegisteredInFleetError';
 export { VehicleNotRegisteredInFleetError } from './errors/VehicleNotRegisteredInFleetError';
