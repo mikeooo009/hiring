@@ -1,0 +1,16 @@
+{
+  "name": "fleet-management",
+  "version": "1.0.0",
+  "private": true,
+  "license": "proprietary",
+  "scripts": {
+    "test": "cucumber-js --profile default",
+    "test:critical": "cucumber-js --profile critical"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.2.0",
+    "@types/node": "^22.15.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
