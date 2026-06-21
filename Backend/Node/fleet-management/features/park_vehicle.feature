@@ -48,3 +48,19 @@ Feature: Park a vehicle
         And the other fleet vehicle has been parked at this location
         When I try to park my vehicle at this location
         Then I should be informed that this location is already occupied by another vehicle
+
+    Scenario: I can't park my vehicle at another location while it is already parked elsewhere
+        And a first location
+        And my vehicle has been parked at the first location
+        And a second location
+        When I try to park my vehicle at the second location
+        Then I should be informed that my vehicle is already parked at another location
+
+    Scenario: I can't park the same vehicle in two locations at the same time across fleets
+        And the fleet of another user
+        And this vehicle has been registered into the other user's fleet
+        And a first location
+        And my vehicle has been parked at the first location
+        And a second location
+        When I try to park this vehicle in the other fleet at the second location
+        Then I should be informed that my vehicle is already parked at another location

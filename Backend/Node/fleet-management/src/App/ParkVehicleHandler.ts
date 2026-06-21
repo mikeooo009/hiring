@@ -1,5 +1,6 @@
 import { FleetNotFoundError } from '../Domain/errors/FleetNotFoundError';
 import { LocationAlreadyOccupiedError } from '../Domain/errors/LocationAlreadyOccupiedError';
+import { VehicleAlreadyParkedAtAnotherLocationError } from '../Domain/errors/VehicleAlreadyParkedAtAnotherLocationError';
 import { FleetRepository } from '../Domain/FleetRepository';
 import { ParkVehicleCommand } from './ParkVehicleCommand';
 
@@ -8,6 +9,7 @@ export class ParkVehicleHandler {
 
   async handle(command: ParkVehicleCommand): Promise<void> {
     await this.assertLocationIsFree(command);
+    await this.assertVehicleNotParkedElsewhere(command);
 
     const fleet = await this.fleetRepository.findById(command.fleetId);
     if (!fleet) {
@@ -35,6 +37,26 @@ export class ParkVehicleHandler {
 
     if (!isSameVehicle) {
       throw new LocationAlreadyOccupiedError(command.location, occupancy.plateNumber);
+    }
+  }
+
+  private async assertVehicleNotParkedElsewhere(
+    command: ParkVehicleCommand
+  ): Promise<void> {
+    const parking = await this.fleetRepository.findVehicleParking(command.plateNumber);
+    if (!parking) {
+      return;
+    }
+
+    const isSameParking =
+      parking.fleetId.equals(command.fleetId) &&
+      parking.location.equals(command.location);
+
+    if (!isSameParking) {
+      throw new VehicleAlreadyParkedAtAnotherLocationError(
+        command.plateNumber,
+        parking.location
+      );
     }
   }
 }

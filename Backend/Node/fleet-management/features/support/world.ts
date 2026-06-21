@@ -28,6 +28,8 @@ export class FleetWorld extends World {
   plateNumber!: VehiclePlateNumber;
   otherPlateNumber!: VehiclePlateNumber;
   location!: Location;
+  firstLocation!: Location;
+  secondLocation!: Location;
   lastError: Error | null = null;
 
   constructor(options: IWorldOptions) {
