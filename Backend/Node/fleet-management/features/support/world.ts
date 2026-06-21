@@ -25,6 +25,7 @@ export class FleetWorld extends World {
   actionDate: ActionDate;
   myFleetId!: FleetId;
   otherFleetId!: FleetId;
+  unknownFleetId!: FleetId;
   plateNumber!: VehiclePlateNumber;
   otherPlateNumber!: VehiclePlateNumber;
   location!: Location;

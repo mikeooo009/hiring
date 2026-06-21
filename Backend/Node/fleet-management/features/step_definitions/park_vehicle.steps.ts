@@ -52,6 +52,11 @@ When('I park my vehicle at this location', async function (this: FleetWorld) {
   await this.parkVehicle(this.myFleetId, this.plateNumber, this.location);
 });
 
+When('I park the other vehicle at this location', async function (this: FleetWorld) {
+  this.lastError = null;
+  await this.parkVehicle(this.myFleetId, this.otherPlateNumber, this.location);
+});
+
 When('I try to park my vehicle at this location', async function (this: FleetWorld) {
   await this.tryParkVehicle(this.myFleetId, this.plateNumber, this.location);
 });

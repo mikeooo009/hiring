@@ -60,6 +60,10 @@ export class Fleet {
     return this.getVehicle(plateNumber).getRegisteredAt();
   }
 
+  getVehicleParkedOn(plateNumber: VehiclePlateNumber): ActionDate | null {
+    return this.getVehicle(plateNumber).getParkedOn();
+  }
+
   private assertLocationIsFree(
     location: Location,
     plateNumber: VehiclePlateNumber

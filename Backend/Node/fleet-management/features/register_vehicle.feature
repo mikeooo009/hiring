@@ -13,6 +13,20 @@ Feature: Register a vehicle
         And a vehicle
         When I register this vehicle into my fleet
         Then this vehicle should be part of my vehicle fleet
+        And the registration date of my vehicle should be "2024-06-21"
+
+    Scenario: Registration date is stored from the action date
+        Given my fleet
+        And a vehicle
+        And the action date is "2024-06-15"
+        When I register this vehicle into my fleet
+        Then the registration date of my vehicle should be "2024-06-15"
+
+    Scenario: I can't register a vehicle in an unknown fleet
+        Given a vehicle
+        And an unknown fleet
+        When I try to register this vehicle into the unknown fleet
+        Then I should be informed that the fleet was not found
 
     Scenario: I can't register same vehicle twice
         Given my fleet

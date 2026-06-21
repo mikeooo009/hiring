@@ -15,6 +15,21 @@ Feature: Park a vehicle
         And a location
         When I park my vehicle at this location
         Then the known location of my vehicle should verify this location
+        And the parking date of my vehicle should be "2024-06-21"
+
+    Scenario: Parking date is stored from the action date
+        And the action date is "2024-06-15"
+        And another vehicle registered in my fleet
+        And a location
+        And the action date is "2024-06-18"
+        When I park the other vehicle at this location
+        Then the parking date of the other vehicle should be "2024-06-18"
+
+    Scenario: I can't park a vehicle in an unknown fleet
+        And an unknown fleet
+        And a location
+        When I try to park my vehicle in the unknown fleet at this location
+        Then I should be informed that the fleet was not found
 
     Scenario: Can't localize my vehicle to the same location two times in a row
         And a location
