@@ -11,6 +11,6 @@
     "outDir": "dist",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "features/**/*"],
+  "include": ["src/**/*", "features/**/*", "cli/**/*"],
   "exclude": ["node_modules", "dist"]
 }

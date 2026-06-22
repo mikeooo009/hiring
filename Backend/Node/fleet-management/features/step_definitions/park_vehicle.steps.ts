@@ -1,7 +1,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import assert from 'node:assert/strict';
 import { ActionDateBeforeRegistrationError } from '../../src/Domain/errors/ActionDateBeforeRegistrationError';
-import { FutureActionDateError } from '../../src/Domain/errors/FutureActionDateError';
 import { LocationAlreadyOccupiedError } from '../../src/Domain/errors/LocationAlreadyOccupiedError';
 import { VehicleAlreadyParkedAtAnotherLocationError } from '../../src/Domain/errors/VehicleAlreadyParkedAtAnotherLocationError';
 import { VehicleAlreadyParkedAtLocationError } from '../../src/Domain/errors/VehicleAlreadyParkedAtLocationError';
@@ -43,9 +42,12 @@ Given('another vehicle registered in the other fleet', async function (this: Fle
   await this.registerVehicle(this.otherFleetId, this.otherPlateNumber);
 });
 
-Given('the other fleet vehicle has been parked at this location', async function (this: FleetWorld) {
-  await this.parkVehicle(this.otherFleetId, this.otherPlateNumber, this.location);
-});
+Given(
+  'the other fleet vehicle has been parked at this location',
+  async function (this: FleetWorld) {
+    await this.parkVehicle(this.otherFleetId, this.otherPlateNumber, this.location);
+  }
+);
 
 When('I park my vehicle at this location', async function (this: FleetWorld) {
   this.lastError = null;
@@ -72,11 +74,14 @@ When(
   }
 );
 
-Then('the known location of my vehicle should verify this location', async function (this: FleetWorld) {
-  const knownLocation = await this.getVehicleLocation(this.myFleetId, this.plateNumber);
-  assert.ok(knownLocation);
-  assert.ok(knownLocation.equals(this.location));
-});
+Then(
+  'the known location of my vehicle should verify this location',
+  async function (this: FleetWorld) {
+    const knownLocation = await this.getVehicleLocation(this.myFleetId, this.plateNumber);
+    assert.ok(knownLocation);
+    assert.ok(knownLocation.equals(this.location));
+  }
+);
 
 Then(
   'I should be informed that my vehicle is already parked at this location',

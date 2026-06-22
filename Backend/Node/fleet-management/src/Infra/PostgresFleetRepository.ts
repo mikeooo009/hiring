@@ -113,9 +113,7 @@ export class PostgresFleetRepository implements FleetRepository {
     };
   }
 
-  async findVehicleParking(
-    plateNumber: VehiclePlateNumber
-  ): Promise<VehicleParking | null> {
+  async findVehicleParking(plateNumber: VehiclePlateNumber): Promise<VehicleParking | null> {
     const result = await this.pool.query<{
       fleet_id: string;
       plate_number: string;

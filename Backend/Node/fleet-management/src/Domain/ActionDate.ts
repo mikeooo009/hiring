@@ -58,10 +58,6 @@ export class ActionDate {
   }
 
   private toDayIndex(): number {
-    return Date.UTC(
-      this.value.getUTCFullYear(),
-      this.value.getUTCMonth(),
-      this.value.getUTCDate()
-    );
+    return Date.UTC(this.value.getUTCFullYear(), this.value.getUTCMonth(), this.value.getUTCDate());
   }
 }

@@ -21,9 +21,12 @@ Given('the fleet of another user', async function (this: FleetWorld) {
   this.otherFleetId = await this.createFleet('other-fleet');
 });
 
-Given("this vehicle has been registered into the other user's fleet", async function (this: FleetWorld) {
-  await this.registerVehicle(this.otherFleetId, this.plateNumber);
-});
+Given(
+  "this vehicle has been registered into the other user's fleet",
+  async function (this: FleetWorld) {
+    await this.registerVehicle(this.otherFleetId, this.plateNumber);
+  }
+);
 
 When('I register this vehicle into my fleet', async function (this: FleetWorld) {
   this.lastError = null;

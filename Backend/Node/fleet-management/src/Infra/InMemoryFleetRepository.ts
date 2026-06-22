@@ -37,9 +37,7 @@ export class InMemoryFleetRepository implements FleetRepository {
     return null;
   }
 
-  async findVehicleParking(
-    plateNumber: VehiclePlateNumber
-  ): Promise<VehicleParking | null> {
+  async findVehicleParking(plateNumber: VehiclePlateNumber): Promise<VehicleParking | null> {
     for (const fleet of this.fleets.values()) {
       if (!fleet.hasVehicle(plateNumber)) {
         continue;

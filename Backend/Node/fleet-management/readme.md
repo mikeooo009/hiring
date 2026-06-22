@@ -60,6 +60,20 @@ $env:FLEET_REPOSITORY="postgres"
 npm run test:persistence
 ```
 
+## Code quality & CI (Step 3)
+
+```shell
+npm run typecheck      # TypeScript
+npm run lint           # ESLint
+npm run format:check   # Prettier
+npm run ci             # typecheck + lint + format + all in-memory tests
+npm run ci:full        # ci + migrate + persistence tests (needs PostgreSQL)
+```
+
+See [STEP3.md](./STEP3.md) for tool choices and CI/CD pipeline details.
+
+GitHub Actions workflow: `.github/workflows/fleet-management-ci.yml` (repo root).
+
 ## Project layout
 
 ```shell

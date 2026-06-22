@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: fleet
       POSTGRES_DB: fleet
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - fleet_pg_data:/var/lib/postgresql/data
 

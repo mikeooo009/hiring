@@ -64,12 +64,7 @@ export class FleetWorld extends World {
 
   async registerVehicle(fleetId: FleetId, plateNumber: VehiclePlateNumber): Promise<void> {
     await this.registerVehicleHandler.handle(
-      new RegisterVehicleCommand(
-        fleetId,
-        plateNumber,
-        this.actionDate,
-        this.today
-      )
+      new RegisterVehicleCommand(fleetId, plateNumber, this.actionDate, this.today)
     );
   }
 
@@ -88,13 +83,7 @@ export class FleetWorld extends World {
     location: Location
   ): Promise<void> {
     await this.parkVehicleHandler.handle(
-      new ParkVehicleCommand(
-        fleetId,
-        plateNumber,
-        location,
-        this.actionDate,
-        this.today
-      )
+      new ParkVehicleCommand(fleetId, plateNumber, location, this.actionDate, this.today)
     );
   }
 
@@ -115,9 +104,7 @@ export class FleetWorld extends World {
     fleetId: FleetId,
     plateNumber: VehiclePlateNumber
   ): Promise<Location | null> {
-    return this.getVehicleLocationHandler.handle(
-      new GetVehicleLocationQuery(fleetId, plateNumber)
-    );
+    return this.getVehicleLocationHandler.handle(new GetVehicleLocationQuery(fleetId, plateNumber));
   }
 }
 

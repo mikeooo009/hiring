@@ -40,23 +40,17 @@ export class ParkVehicleHandler {
     }
   }
 
-  private async assertVehicleNotParkedElsewhere(
-    command: ParkVehicleCommand
-  ): Promise<void> {
+  private async assertVehicleNotParkedElsewhere(command: ParkVehicleCommand): Promise<void> {
     const parking = await this.fleetRepository.findVehicleParking(command.plateNumber);
     if (!parking) {
       return;
     }
 
     const isSameParking =
-      parking.fleetId.equals(command.fleetId) &&
-      parking.location.equals(command.location);
+      parking.fleetId.equals(command.fleetId) && parking.location.equals(command.location);
 
     if (!isSameParking) {
-      throw new VehicleAlreadyParkedAtAnotherLocationError(
-        command.plateNumber,
-        parking.location
-      );
+      throw new VehicleAlreadyParkedAtAnotherLocationError(command.plateNumber, parking.location);
     }
   }
 }

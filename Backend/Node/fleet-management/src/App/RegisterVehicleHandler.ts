@@ -11,11 +11,7 @@ export class RegisterVehicleHandler {
       throw new FleetNotFoundError(command.fleetId);
     }
 
-    fleet.registerVehicle(
-      command.plateNumber,
-      command.actionDate,
-      command.referenceDate
-    );
+    fleet.registerVehicle(command.plateNumber, command.actionDate, command.referenceDate);
     await this.fleetRepository.save(fleet);
   }
 }
