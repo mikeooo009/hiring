@@ -23,7 +23,17 @@ docker compose up -d
 npm run migrate
 ```
 
-`DATABASE_URL` must be set (see `.env.example`).
+Set `DATABASE_URL` (same credentials as `docker-compose.yml`):
+
+```shell
+# PowerShell
+$env:DATABASE_URL="postgres://fleet:fleet@localhost:5432/fleet"
+
+# bash
+export DATABASE_URL="postgres://fleet:fleet@localhost:5432/fleet"
+```
+
+Or copy `.env.example` to `.env` — it already contains this value.
 
 ## CLI
 
@@ -33,13 +43,22 @@ npm run fleet -- register-vehicle <fleetId> <vehiclePlateNumber>
 npm run fleet -- localize-vehicle <fleetId> <vehiclePlateNumber> <lat> <lng>
 ```
 
-Example:
+Example (PowerShell):
 
 ```shell
 $env:DATABASE_URL="postgres://fleet:fleet@localhost:5432/fleet"
-$fleetId = npm run fleet -- create user-42
+$fleetId = npm run fleet --silent -- create user-42
 npm run fleet -- register-vehicle $fleetId ABC-123
 npm run fleet -- localize-vehicle $fleetId ABC-123 48.8566 2.3522
+```
+
+Example (bash):
+
+```shell
+export DATABASE_URL="postgres://fleet:fleet@localhost:5432/fleet"
+fleetId=$(npm run fleet --silent -- create user-42)
+npm run fleet -- register-vehicle "$fleetId" ABC-123
+npm run fleet -- localize-vehicle "$fleetId" ABC-123 48.8566 2.3522
 ```
 
 The `create` command prints the `fleetId` on stdout.
@@ -70,7 +89,6 @@ npm run ci             # typecheck + lint + format + all in-memory tests
 npm run ci:full        # ci + migrate + persistence tests (needs PostgreSQL)
 ```
 
-See [STEP3.md](./STEP3.md) for tool choices and CI/CD pipeline details.
 
 GitHub Actions workflow: `.github/workflows/fleet-management-ci.yml` (repo root).
 
