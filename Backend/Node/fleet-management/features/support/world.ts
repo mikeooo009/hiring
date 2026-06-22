@@ -13,13 +13,14 @@ import { FleetId } from '../../src/Domain/FleetId';
 import { FleetRepository } from '../../src/Domain/FleetRepository';
 import { Location } from '../../src/Domain/Location';
 import { VehiclePlateNumber } from '../../src/Domain/VehiclePlateNumber';
-import { InMemoryFleetRepository } from '../../src/Infra';
+import { getPool } from '../../src/Infra/PostgresConnection';
+import { createFleetRepository, usesPostgresRepository } from './repository_factory';
 
 export class FleetWorld extends World {
-  readonly fleetRepository: FleetRepository = new InMemoryFleetRepository();
-  readonly registerVehicleHandler = new RegisterVehicleHandler(this.fleetRepository);
-  readonly parkVehicleHandler = new ParkVehicleHandler(this.fleetRepository);
-  readonly getVehicleLocationHandler = new GetVehicleLocationHandler(this.fleetRepository);
+  fleetRepository: FleetRepository;
+  registerVehicleHandler!: RegisterVehicleHandler;
+  parkVehicleHandler!: ParkVehicleHandler;
+  getVehicleLocationHandler!: GetVehicleLocationHandler;
 
   today: ActionDate;
   actionDate: ActionDate;
@@ -37,10 +38,26 @@ export class FleetWorld extends World {
     super(options);
     this.today = ActionDate.parse('2024-06-21');
     this.actionDate = this.today;
+    this.fleetRepository = createFleetRepository();
+    this.initializeHandlers();
   }
 
-  async createFleet(id: string): Promise<FleetId> {
+  initializeHandlers(): void {
+    this.registerVehicleHandler = new RegisterVehicleHandler(this.fleetRepository);
+    this.parkVehicleHandler = new ParkVehicleHandler(this.fleetRepository);
+    this.getVehicleLocationHandler = new GetVehicleLocationHandler(this.fleetRepository);
+  }
+
+  async createFleet(id: string, userId = 'test-user'): Promise<FleetId> {
     const fleetId = new FleetId(id);
+
+    if (usesPostgresRepository()) {
+      await getPool().query(
+        'INSERT INTO fleets (id, user_id) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+        [fleetId.toString(), userId]
+      );
+    }
+
     await this.fleetRepository.save(new Fleet(fleetId));
     return fleetId;
   }

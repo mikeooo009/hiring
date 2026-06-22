@@ -5,13 +5,18 @@ import { VehicleAlreadyParkedAtLocationError } from './errors/VehicleAlreadyPark
 import { VehicleAlreadyParkedAtAnotherLocationError } from './errors/VehicleAlreadyParkedAtAnotherLocationError';
 
 export class FleetVehicle {
-  private parkedAt: Location | null = null;
-  private parkedOn: ActionDate | null = null;
+  private parkedAt: Location | null;
+  private parkedOn: ActionDate | null;
 
   constructor(
     readonly plateNumber: VehiclePlateNumber,
-    readonly registeredAt: ActionDate
-  ) {}
+    readonly registeredAt: ActionDate,
+    parkedAt: Location | null = null,
+    parkedOn: ActionDate | null = null
+  ) {
+    this.parkedAt = parkedAt;
+    this.parkedOn = parkedOn;
+  }
 
   parkAt(location: Location, actionDate: ActionDate, referenceDate: ActionDate): void {
     actionDate.assertNotInFuture(referenceDate);

@@ -3,13 +3,26 @@
   "version": "1.0.0",
   "private": true,
   "license": "proprietary",
+  "bin": {
+    "fleet": "./cli/fleet.ts"
+  },
   "scripts": {
+    "build": "tsc",
+    "migrate": "ts-node src/Infra/migrate-cli.ts",
+    "fleet": "ts-node cli/fleet.ts",
     "test": "cucumber-js --profile default",
-    "test:critical": "cucumber-js --profile critical"
+    "test:critical": "cucumber-js --profile critical",
+    "test:persistence": "cross-env FLEET_REPOSITORY=postgres cucumber-js --profile persistence"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "pg": "^8.14.1"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^11.2.0",
     "@types/node": "^22.15.0",
+    "@types/pg": "^8.11.11",
+    "cross-env": "^7.0.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }

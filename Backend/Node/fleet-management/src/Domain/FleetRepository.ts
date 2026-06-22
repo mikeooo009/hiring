@@ -6,6 +6,7 @@ import { VehicleParking } from './VehicleParking';
 import { VehiclePlateNumber } from './VehiclePlateNumber';
 
 export interface FleetRepository {
+  create(userId: string): Promise<FleetId>;
   findById(id: FleetId): Promise<Fleet | null>;
   save(fleet: Fleet): Promise<void>;
   findVehicleAtLocation(location: Location): Promise<LocationOccupancy | null>;

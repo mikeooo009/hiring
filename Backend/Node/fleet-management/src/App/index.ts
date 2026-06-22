@@ -1,3 +1,5 @@
+export { CreateFleetCommand } from './CreateFleetCommand';
+export { CreateFleetHandler } from './CreateFleetHandler';
 export { RegisterVehicleCommand } from './RegisterVehicleCommand';
 export { RegisterVehicleHandler } from './RegisterVehicleHandler';
 export { ParkVehicleCommand } from './ParkVehicleCommand';

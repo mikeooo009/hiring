@@ -10,7 +10,11 @@ import { LocationAlreadyOccupiedError } from './errors/LocationAlreadyOccupiedEr
 export class Fleet {
   private readonly vehicles = new Map<string, FleetVehicle>();
 
-  constructor(readonly id: FleetId) {}
+  constructor(readonly id: FleetId, vehicles: Iterable<FleetVehicle> = []) {
+    for (const vehicle of vehicles) {
+      this.vehicles.set(vehicle.plateNumber.toString(), vehicle);
+    }
+  }
 
   registerVehicle(
     plateNumber: VehiclePlateNumber,
@@ -62,6 +66,10 @@ export class Fleet {
 
   getVehicleParkedOn(plateNumber: VehiclePlateNumber): ActionDate | null {
     return this.getVehicle(plateNumber).getParkedOn();
+  }
+
+  getVehicles(): readonly FleetVehicle[] {
+    return [...this.vehicles.values()];
   }
 
   private assertLocationIsFree(
