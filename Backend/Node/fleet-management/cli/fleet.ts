@@ -13,11 +13,7 @@ import { FleetId } from '../src/Domain/FleetId';
 import { Location } from '../src/Domain/Location';
 import { VehiclePlateNumber } from '../src/Domain/VehiclePlateNumber';
 import { DomainError } from '../src/Domain/errors/DomainError';
-import {
-  closePool,
-  getPool,
-  registerPoolShutdownHooks,
-} from '../src/Infra/PostgresConnection';
+import { closePool, getPool, registerPoolShutdownHooks } from '../src/Infra/PostgresConnection';
 import { PostgresFleetRepository } from '../src/Infra/PostgresFleetRepository';
 import { migrate } from '../src/Infra/migrate';
 

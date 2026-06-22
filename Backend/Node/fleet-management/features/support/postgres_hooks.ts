@@ -1,8 +1,5 @@
 import { BeforeAll, Before, AfterAll } from '@cucumber/cucumber';
-import {
-  closePool,
-  registerPoolShutdownHooks,
-} from '../../src/Infra/PostgresConnection';
+import { closePool, registerPoolShutdownHooks } from '../../src/Infra/PostgresConnection';
 import { migrate, truncateTables } from '../../src/Infra/migrate';
 import { usesPostgresRepository } from './repository_factory';
 
