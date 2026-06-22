@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { ActionDate } from '../Domain/ActionDate';
+import { COORDINATE_EPSILON } from '../Domain/coordinates';
 import { Fleet } from '../Domain/Fleet';
 import { FleetId } from '../Domain/FleetId';
 import { FleetRepository } from '../Domain/FleetRepository';
@@ -56,35 +57,54 @@ export class PostgresFleetRepository implements FleetRepository {
   }
 
   async save(fleet: Fleet): Promise<void> {
+    const vehicles = fleet.getVehicles();
+    if (vehicles.length === 0) {
+      return;
+    }
+
+    const fleetIds: string[] = [];
+    const plateNumbers: string[] = [];
+    const registeredAts: string[] = [];
+    const parkedLatitudes: (number | null)[] = [];
+    const parkedLongitudes: (number | null)[] = [];
+    const parkedOns: (string | null)[] = [];
+
+    for (const vehicle of vehicles) {
+      const location = vehicle.getLocation();
+      const parkedOn = vehicle.getParkedOn();
+
+      fleetIds.push(fleet.id.toString());
+      plateNumbers.push(vehicle.plateNumber.toString());
+      registeredAts.push(vehicle.getRegisteredAt().toIsoDate());
+      parkedLatitudes.push(location?.latitude ?? null);
+      parkedLongitudes.push(location?.longitude ?? null);
+      parkedOns.push(parkedOn?.toIsoDate() ?? null);
+    }
+
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-
-      for (const vehicle of fleet.getVehicles()) {
-        const location = vehicle.getLocation();
-        const parkedOn = vehicle.getParkedOn();
-
-        await client.query(
-          `INSERT INTO fleet_vehicles (
-             fleet_id, plate_number, registered_at,
-             parked_latitude, parked_longitude, parked_on
-           ) VALUES ($1, $2, $3, $4, $5, $6)
-           ON CONFLICT (fleet_id, plate_number) DO UPDATE SET
-             registered_at = EXCLUDED.registered_at,
-             parked_latitude = EXCLUDED.parked_latitude,
-             parked_longitude = EXCLUDED.parked_longitude,
-             parked_on = EXCLUDED.parked_on`,
-          [
-            fleet.id.toString(),
-            vehicle.plateNumber.toString(),
-            vehicle.getRegisteredAt().toIsoDate(),
-            location?.latitude ?? null,
-            location?.longitude ?? null,
-            parkedOn?.toIsoDate() ?? null,
-          ]
-        );
-      }
-
+      await client.query(
+        `INSERT INTO fleet_vehicles (
+           fleet_id, plate_number, registered_at,
+           parked_latitude, parked_longitude, parked_on
+         )
+         SELECT *
+         FROM UNNEST(
+           $1::varchar[],
+           $2::varchar[],
+           $3::date[],
+           $4::float8[],
+           $5::float8[],
+           $6::date[]
+         )
+         ON CONFLICT (fleet_id, plate_number) DO UPDATE SET
+           registered_at = EXCLUDED.registered_at,
+           parked_latitude = EXCLUDED.parked_latitude,
+           parked_longitude = EXCLUDED.parked_longitude,
+           parked_on = EXCLUDED.parked_on`,
+        [fleetIds, plateNumbers, registeredAts, parkedLatitudes, parkedLongitudes, parkedOns]
+      );
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -98,8 +118,11 @@ export class PostgresFleetRepository implements FleetRepository {
     const result = await this.pool.query<{ fleet_id: string; plate_number: string }>(
       `SELECT fleet_id, plate_number
        FROM fleet_vehicles
-       WHERE parked_latitude = $1 AND parked_longitude = $2`,
-      [location.latitude, location.longitude]
+       WHERE parked_latitude IS NOT NULL
+         AND parked_longitude IS NOT NULL
+         AND ABS(parked_latitude - $1) <= $3
+         AND ABS(parked_longitude - $2) <= $3`,
+      [location.latitude, location.longitude, COORDINATE_EPSILON]
     );
 
     if (result.rowCount === 0) {

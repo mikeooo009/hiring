@@ -1,7 +1,9 @@
+import { InvalidVehiclePlateNumberError } from './errors/InvalidVehiclePlateNumberError';
+
 export class VehiclePlateNumber {
   constructor(readonly value: string) {
     if (!value.trim()) {
-      throw new Error('Vehicle plate number cannot be empty');
+      throw new InvalidVehiclePlateNumberError('Vehicle plate number cannot be empty');
     }
   }
 

@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS fleet_vehicles (
     PRIMARY KEY (fleet_id, plate_number)
 );
 
+CREATE INDEX IF NOT EXISTS idx_fleet_vehicles_fleet_id
+    ON fleet_vehicles (fleet_id);
+
 CREATE INDEX IF NOT EXISTS idx_fleet_vehicles_location
     ON fleet_vehicles (parked_latitude, parked_longitude)
     WHERE parked_latitude IS NOT NULL;

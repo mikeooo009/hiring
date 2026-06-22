@@ -1,7 +1,9 @@
+import { InvalidFleetIdError } from './errors/InvalidFleetIdError';
+
 export class FleetId {
   constructor(readonly value: string) {
     if (!value.trim()) {
-      throw new Error('Fleet id cannot be empty');
+      throw new InvalidFleetIdError('Fleet id cannot be empty');
     }
   }
 

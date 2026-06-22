@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "migrate": "ts-node src/Infra/migrate-cli.ts",
+    "migrate:down": "ts-node src/Infra/migrate-down-cli.ts",
     "fleet": "ts-node cli/fleet.ts",
     "test": "cucumber-js --profile default",
     "test:critical": "cucumber-js --profile critical",
