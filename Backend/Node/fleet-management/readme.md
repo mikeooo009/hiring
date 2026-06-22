@@ -89,7 +89,6 @@ npm run ci             # typecheck + lint + format + all in-memory tests
 npm run ci:full        # ci + migrate + persistence tests (needs PostgreSQL)
 ```
 
-
 GitHub Actions workflow: `.github/workflows/fleet-management-ci.yml` (repo root).
 
 ## Project layout
