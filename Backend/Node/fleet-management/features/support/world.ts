@@ -2,28 +2,32 @@ import { setWorldConstructor, World, IWorldOptions } from '@cucumber/cucumber';
 import {
   GetVehicleLocationHandler,
   GetVehicleLocationQuery,
+  LocalizeVehicleCommand,
+  LocalizeVehicleHandler,
   ParkVehicleCommand,
   ParkVehicleHandler,
   RegisterVehicleCommand,
   RegisterVehicleHandler,
 } from '../../src/App';
 import { ActionDate } from '../../src/Domain/ActionDate';
-import { Fleet } from '../../src/Domain/Fleet';
 import { FleetId } from '../../src/Domain/FleetId';
 import { FleetRepository } from '../../src/Domain/FleetRepository';
 import { Location } from '../../src/Domain/Location';
 import { VehiclePlateNumber } from '../../src/Domain/VehiclePlateNumber';
-import { getPool } from '../../src/Infra/PostgresConnection';
-import { createFleetRepository, usesPostgresRepository } from './repository_factory';
+import { createFleetRepository } from './repository_factory';
 
 export class FleetWorld extends World {
   fleetRepository: FleetRepository;
   registerVehicleHandler!: RegisterVehicleHandler;
   parkVehicleHandler!: ParkVehicleHandler;
+  localizeVehicleHandler!: LocalizeVehicleHandler;
   getVehicleLocationHandler!: GetVehicleLocationHandler;
 
   today: ActionDate;
   actionDate: ActionDate;
+  myUserId = 'test-user';
+  otherUserId = 'other-user';
+  intruderUserId = 'intruder-user';
   myFleetId!: FleetId;
   otherFleetId!: FleetId;
   unknownFleetId!: FleetId;
@@ -33,6 +37,7 @@ export class FleetWorld extends World {
   firstLocation!: Location;
   secondLocation!: Location;
   lastError: Error | null = null;
+  lastKnownLocation: Location | null = null;
 
   constructor(options: IWorldOptions) {
     super(options);
@@ -45,33 +50,34 @@ export class FleetWorld extends World {
   initializeHandlers(): void {
     this.registerVehicleHandler = new RegisterVehicleHandler(this.fleetRepository);
     this.parkVehicleHandler = new ParkVehicleHandler(this.fleetRepository);
+    this.localizeVehicleHandler = new LocalizeVehicleHandler(this.fleetRepository);
     this.getVehicleLocationHandler = new GetVehicleLocationHandler(this.fleetRepository);
   }
 
-  async createFleet(id: string, userId = 'test-user'): Promise<FleetId> {
+  async createFleet(id: string, userId = this.myUserId): Promise<FleetId> {
     const fleetId = new FleetId(id);
-
-    if (usesPostgresRepository()) {
-      await getPool().query(
-        'INSERT INTO fleets (id, user_id) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
-        [fleetId.toString(), userId]
-      );
-    }
-
-    await this.fleetRepository.save(new Fleet(fleetId));
+    await this.fleetRepository.assignFleetOwner(fleetId, userId);
     return fleetId;
   }
 
-  async registerVehicle(fleetId: FleetId, plateNumber: VehiclePlateNumber): Promise<void> {
+  async registerVehicle(
+    fleetId: FleetId,
+    plateNumber: VehiclePlateNumber,
+    userId = this.myUserId
+  ): Promise<void> {
     await this.registerVehicleHandler.handle(
-      new RegisterVehicleCommand(fleetId, plateNumber, this.actionDate, this.today)
+      new RegisterVehicleCommand(fleetId, userId, plateNumber, this.actionDate, this.today)
     );
   }
 
-  async tryRegisterVehicle(fleetId: FleetId, plateNumber: VehiclePlateNumber): Promise<void> {
+  async tryRegisterVehicle(
+    fleetId: FleetId,
+    plateNumber: VehiclePlateNumber,
+    userId = this.myUserId
+  ): Promise<void> {
     this.lastError = null;
     try {
-      await this.registerVehicle(fleetId, plateNumber);
+      await this.registerVehicle(fleetId, plateNumber, userId);
     } catch (error) {
       this.lastError = error as Error;
     }
@@ -80,21 +86,55 @@ export class FleetWorld extends World {
   async parkVehicle(
     fleetId: FleetId,
     plateNumber: VehiclePlateNumber,
-    location: Location
+    location: Location,
+    userId = this.myUserId
   ): Promise<void> {
     await this.parkVehicleHandler.handle(
-      new ParkVehicleCommand(fleetId, plateNumber, location, this.actionDate, this.today)
+      new ParkVehicleCommand(fleetId, userId, plateNumber, location, this.actionDate, this.today)
     );
   }
 
   async tryParkVehicle(
     fleetId: FleetId,
     plateNumber: VehiclePlateNumber,
-    location: Location
+    location: Location,
+    userId = this.myUserId
   ): Promise<void> {
     this.lastError = null;
     try {
-      await this.parkVehicle(fleetId, plateNumber, location);
+      await this.parkVehicle(fleetId, plateNumber, location, userId);
+    } catch (error) {
+      this.lastError = error as Error;
+    }
+  }
+
+  async localizeVehicle(
+    fleetId: FleetId,
+    plateNumber: VehiclePlateNumber,
+    location: Location,
+    userId = this.myUserId
+  ): Promise<void> {
+    await this.localizeVehicleHandler.handle(
+      new LocalizeVehicleCommand(
+        fleetId,
+        userId,
+        plateNumber,
+        location,
+        this.actionDate,
+        this.today
+      )
+    );
+  }
+
+  async tryLocalizeVehicle(
+    fleetId: FleetId,
+    plateNumber: VehiclePlateNumber,
+    location: Location,
+    userId = this.myUserId
+  ): Promise<void> {
+    this.lastError = null;
+    try {
+      await this.localizeVehicle(fleetId, plateNumber, location, userId);
     } catch (error) {
       this.lastError = error as Error;
     }
@@ -102,9 +142,12 @@ export class FleetWorld extends World {
 
   async getVehicleLocation(
     fleetId: FleetId,
-    plateNumber: VehiclePlateNumber
+    plateNumber: VehiclePlateNumber,
+    userId = this.myUserId
   ): Promise<Location | null> {
-    return this.getVehicleLocationHandler.handle(new GetVehicleLocationQuery(fleetId, plateNumber));
+    return this.getVehicleLocationHandler.handle(
+      new GetVehicleLocationQuery(fleetId, userId, plateNumber)
+    );
   }
 }
 

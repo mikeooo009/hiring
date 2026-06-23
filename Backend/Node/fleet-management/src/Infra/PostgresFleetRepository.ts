@@ -1,20 +1,26 @@
 import { randomUUID } from 'node:crypto';
 import { DatabaseError, Pool, PoolClient } from 'pg';
+import { executeLocalizeVehicleWorkflow } from '../App/localizeVehicleWorkflow';
+import { LocalizeVehicleCommand } from '../App/LocalizeVehicleCommand';
 import { executeParkVehicleWorkflow } from '../App/parkVehicleWorkflow';
 import { ParkVehicleCommand } from '../App/ParkVehicleCommand';
+import { executeRegisterVehicleWorkflow } from '../App/registerVehicleWorkflow';
+import { RegisterVehicleCommand } from '../App/RegisterVehicleCommand';
 import { ActionDate } from '../Domain/ActionDate';
-import { COORDINATE_EPSILON } from '../Domain/coordinates';
+import { COORDINATE_PRECISION } from '../Domain/coordinates';
 import { Fleet } from '../Domain/Fleet';
 import { FleetId } from '../Domain/FleetId';
 import { FleetRepository } from '../Domain/FleetRepository';
 import { FleetVehicle } from '../Domain/FleetVehicle';
 import { Location } from '../Domain/Location';
 import { FleetNotFoundError } from '../Domain/errors/FleetNotFoundError';
+import { InvalidVehicleStateError } from '../Domain/errors/InvalidVehicleStateError';
 import { LocationAlreadyOccupiedError } from '../Domain/errors/LocationAlreadyOccupiedError';
 import { LocationOccupancy } from '../Domain/LocationOccupancy';
 import { VehicleAlreadyParkedAtAnotherLocationError } from '../Domain/errors/VehicleAlreadyParkedAtAnotherLocationError';
 import { VehicleParking } from '../Domain/VehicleParking';
 import { VehiclePlateNumber } from '../Domain/VehiclePlateNumber';
+import { runWithDeadlockRetry } from './runWithDeadlockRetry';
 
 interface VehicleRow {
   plate_number: string;
@@ -34,11 +40,20 @@ export class PostgresFleetRepository implements FleetRepository {
 
   async create(userId: string): Promise<FleetId> {
     const fleetId = new FleetId(randomUUID());
-    await this.pool.query('INSERT INTO fleets (id, user_id) VALUES ($1, $2)', [
-      fleetId.toString(),
-      userId,
-    ]);
+    await this.assignFleetOwner(fleetId, userId);
     return fleetId;
+  }
+
+  async assignFleetOwner(fleetId: FleetId, userId: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO fleets (id, user_id) VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id`,
+      [fleetId.toString(), userId]
+    );
+  }
+
+  async getFleetOwnerId(fleetId: FleetId): Promise<string | null> {
+    return getFleetOwnerId(this.pool, fleetId);
   }
 
   async findById(id: FleetId): Promise<Fleet | null> {
@@ -46,17 +61,19 @@ export class PostgresFleetRepository implements FleetRepository {
   }
 
   async save(fleet: Fleet): Promise<void> {
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      await saveFleet(client, fleet);
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    await runWithDeadlockRetry(async () => {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await saveFleet(client, fleet);
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    });
   }
 
   async findVehicleAtLocation(location: Location): Promise<LocationOccupancy | null> {
@@ -67,45 +84,73 @@ export class PostgresFleetRepository implements FleetRepository {
     return findVehicleParking(this.pool, plateNumber);
   }
 
-  async parkVehicle(command: ParkVehicleCommand): Promise<void> {
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      await client.query(
-        `SELECT pg_advisory_xact_lock(
-           hashtext(round($1::numeric, 6)::text || ':' || round($2::numeric, 6)::text)
-         )`,
-        [command.location.latitude, command.location.longitude]
-      );
-
-      await client.query(
-        `SELECT fleet_id
-         FROM fleet_vehicles
-         WHERE plate_number = $1
-         FOR UPDATE`,
-        [command.plateNumber.toString()]
-      );
-
-      const fleetLock = await client.query(
-        'SELECT 1 FROM fleets WHERE id = $1 FOR UPDATE',
-        [command.fleetId.toString()]
-      );
-      if (fleetLock.rowCount === 0) {
-        throw new FleetNotFoundError(command.fleetId);
+  async registerVehicle(command: RegisterVehicleCommand): Promise<void> {
+    await runWithDeadlockRetry(async () => {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await lockPlate(client, command.plateNumber);
+        await lockFleet(client, command.fleetId);
+        const transactionalRepository = new PostgresFleetRepositoryTxn(client);
+        await executeRegisterVehicleWorkflow(transactionalRepository, command);
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
       }
+    });
+  }
 
-      const transactionalRepository = new PostgresFleetRepositoryTxn(client);
-      await executeParkVehicleWorkflow(transactionalRepository, command);
+  async parkVehicle(command: ParkVehicleCommand): Promise<void> {
+    await runWithDeadlockRetry(async () => {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await lockLocation(client, command.location);
+        await lockPlate(client, command.plateNumber);
+        await lockFleet(client, command.fleetId);
 
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      const domainError = await mapUniqueViolationToDomainError(this.pool, error, command);
-      throw domainError ?? error;
-    } finally {
-      client.release();
-    }
+        const transactionalRepository = new PostgresFleetRepositoryTxn(client);
+        await executeParkVehicleWorkflow(transactionalRepository, command);
+
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        const domainError = await mapUniqueViolationToDomainError(this.pool, error, command);
+        throw domainError ?? error;
+      } finally {
+        client.release();
+      }
+    });
+  }
+
+  async localizeVehicle(command: LocalizeVehicleCommand): Promise<void> {
+    await runWithDeadlockRetry(async () => {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await lockLocation(client, command.location);
+        await lockPlate(client, command.plateNumber);
+        await lockFleet(client, command.fleetId);
+
+        const transactionalRepository = new PostgresFleetRepositoryTxn(client);
+        await executeLocalizeVehicleWorkflow(transactionalRepository, command);
+
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        const domainError = await mapUniqueViolationToDomainError(
+          this.pool,
+          error,
+          command.toParkCommand()
+        );
+        throw domainError ?? error;
+      } finally {
+        client.release();
+      }
+    });
   }
 }
 
@@ -113,7 +158,15 @@ class PostgresFleetRepositoryTxn implements FleetRepository {
   constructor(private readonly client: PoolClient) {}
 
   async create(): Promise<FleetId> {
-    throw new Error('create() is not supported inside a parkVehicle transaction');
+    throw new Error('create() is not supported inside a transaction');
+  }
+
+  async assignFleetOwner(): Promise<void> {
+    throw new Error('assignFleetOwner() is not supported inside a transaction');
+  }
+
+  async getFleetOwnerId(fleetId: FleetId): Promise<string | null> {
+    return getFleetOwnerId(this.client, fleetId);
   }
 
   async findById(id: FleetId): Promise<Fleet | null> {
@@ -132,16 +185,79 @@ class PostgresFleetRepositoryTxn implements FleetRepository {
     return findVehicleParking(this.client, plateNumber);
   }
 
+  async registerVehicle(): Promise<void> {
+    throw new Error('Nested registerVehicle() calls are not supported');
+  }
+
   async parkVehicle(): Promise<void> {
     throw new Error('Nested parkVehicle() calls are not supported');
+  }
+
+  async localizeVehicle(): Promise<void> {
+    throw new Error('Nested localizeVehicle() calls are not supported');
+  }
+}
+
+async function getFleetOwnerId(executor: QueryExecutor, fleetId: FleetId): Promise<string | null> {
+  const result = await executor.query<{ user_id: string }>(
+    'SELECT user_id FROM fleets WHERE id = $1',
+    [fleetId.toString()]
+  );
+
+  if (result.rowCount === 0) {
+    return null;
+  }
+
+  return result.rows[0].user_id;
+}
+
+async function lockLocation(client: PoolClient, location: Location): Promise<void> {
+  await client.query(
+    `SELECT pg_advisory_xact_lock(
+       hashtext(round($1::numeric, 6)::text || ':' || round($2::numeric, 6)::text)
+     )`,
+    [location.latitude, location.longitude]
+  );
+
+  await client.query(
+    `SELECT fleet_id, plate_number
+     FROM fleet_vehicles
+     WHERE parked_latitude IS NOT NULL
+       AND round(parked_latitude::numeric, $3) = round($1::numeric, $3)
+       AND round(parked_longitude::numeric, $3) = round($2::numeric, $3)
+     FOR UPDATE`,
+    [location.latitude, location.longitude, COORDINATE_PRECISION]
+  );
+}
+
+async function lockPlate(client: PoolClient, plateNumber: VehiclePlateNumber): Promise<void> {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext('plate:' || $1))`, [
+    plateNumber.toString(),
+  ]);
+
+  await client.query(
+    `SELECT fleet_id
+     FROM fleet_vehicles
+     WHERE plate_number = $1
+     FOR UPDATE`,
+    [plateNumber.toString()]
+  );
+}
+
+async function lockFleet(client: PoolClient, fleetId: FleetId): Promise<void> {
+  const fleetLock = await client.query('SELECT 1 FROM fleets WHERE id = $1 FOR UPDATE', [
+    fleetId.toString(),
+  ]);
+
+  if (fleetLock.rowCount === 0) {
+    throw new FleetNotFoundError(fleetId);
   }
 }
 
 async function findFleetById(executor: QueryExecutor, id: FleetId): Promise<Fleet | null> {
-  const fleetResult = await executor.query<{ id: string }>(
-    'SELECT id FROM fleets WHERE id = $1',
-    [id.toString()]
-  );
+  const fleetResult = await executor.query<{ id: string }>('SELECT id FROM fleets WHERE id = $1', [
+    id.toString(),
+  ]);
 
   if (fleetResult.rowCount === 0) {
     return null;
@@ -219,9 +335,9 @@ async function findVehicleAtLocation(
      FROM fleet_vehicles
      WHERE parked_latitude IS NOT NULL
        AND parked_longitude IS NOT NULL
-       AND ABS(parked_latitude - $1) <= $3
-       AND ABS(parked_longitude - $2) <= $3`,
-    [location.latitude, location.longitude, COORDINATE_EPSILON]
+       AND round(parked_latitude::numeric, $3) = round($1::numeric, $3)
+       AND round(parked_longitude::numeric, $3) = round($2::numeric, $3)`,
+    [location.latitude, location.longitude, COORDINATE_PRECISION]
   );
 
   if (result.rowCount === 0) {
@@ -267,13 +383,27 @@ async function findVehicleParking(
 
 function toFleetVehicle(row: VehicleRow): FleetVehicle {
   const registeredAt = ActionDate.parse(row.registered_at);
-  let parkedAt: Location | null = null;
-  let parkedOn: ActionDate | null = null;
+  const hasLatitude = row.parked_latitude !== null;
+  const hasLongitude = row.parked_longitude !== null;
 
-  if (row.parked_latitude !== null && row.parked_longitude !== null) {
-    parkedAt = new Location(row.parked_latitude, row.parked_longitude);
-    parkedOn = row.parked_on ? ActionDate.parse(row.parked_on) : null;
+  if (hasLatitude !== hasLongitude) {
+    throw new InvalidVehicleStateError(
+      `Vehicle ${row.plate_number} has inconsistent parking coordinates`
+    );
   }
+
+  if (!hasLatitude) {
+    return new FleetVehicle(new VehiclePlateNumber(row.plate_number), registeredAt);
+  }
+
+  if (!row.parked_on) {
+    throw new InvalidVehicleStateError(
+      `Vehicle ${row.plate_number} is parked but has no parking date`
+    );
+  }
+
+  const parkedAt = new Location(row.parked_latitude as number, row.parked_longitude as number);
+  const parkedOn = ActionDate.parse(row.parked_on);
 
   return new FleetVehicle(
     new VehiclePlateNumber(row.plate_number),
@@ -295,10 +425,7 @@ async function mapUniqueViolationToDomainError(
   if (error.constraint === PARKED_PLATE_INDEX) {
     const parking = await findVehicleParking(pool, command.plateNumber);
     if (parking) {
-      return new VehicleAlreadyParkedAtAnotherLocationError(
-        command.plateNumber,
-        parking.location
-      );
+      return new VehicleAlreadyParkedAtAnotherLocationError(command.plateNumber, parking.location);
     }
   }
 

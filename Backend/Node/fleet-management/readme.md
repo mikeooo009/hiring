@@ -39,17 +39,20 @@ Or copy `.env.example` to `.env` — it already contains this value.
 
 ```shell
 npm run fleet -- create <userId>
-npm run fleet -- register-vehicle <fleetId> <vehiclePlateNumber>
-npm run fleet -- localize-vehicle <fleetId> <vehiclePlateNumber> <lat> <lng>
+npm run fleet -- register-vehicle <userId> <fleetId> <vehiclePlateNumber>
+npm run fleet -- localize-vehicle <userId> <fleetId> <vehiclePlateNumber> <lat> <lng>
 ```
+
+`localize-vehicle` parks the vehicle if it has no location, or relocates it to a new spot.
 
 Example (PowerShell):
 
 ```shell
 $env:DATABASE_URL="postgres://fleet:fleet@localhost:5432/fleet"
 $fleetId = npm run fleet --silent -- create user-42
-npm run fleet -- register-vehicle $fleetId ABC-123
-npm run fleet -- localize-vehicle $fleetId ABC-123 48.8566 2.3522
+npm run fleet -- register-vehicle user-42 $fleetId ABC-123
+npm run fleet -- localize-vehicle user-42 $fleetId ABC-123 48.8566 2.3522
+npm run fleet -- localize-vehicle user-42 $fleetId ABC-123 48.8606 2.3376
 ```
 
 Example (bash):
@@ -57,8 +60,8 @@ Example (bash):
 ```shell
 export DATABASE_URL="postgres://fleet:fleet@localhost:5432/fleet"
 fleetId=$(npm run fleet --silent -- create user-42)
-npm run fleet -- register-vehicle "$fleetId" ABC-123
-npm run fleet -- localize-vehicle "$fleetId" ABC-123 48.8566 2.3522
+npm run fleet -- register-vehicle user-42 "$fleetId" ABC-123
+npm run fleet -- localize-vehicle user-42 "$fleetId" ABC-123 48.8566 2.3522
 ```
 
 The `create` command prints the `fleetId` on stdout.
@@ -69,7 +72,16 @@ The `create` command prints the `fleetId` on stdout.
 npm test              # in-memory scenarios (excludes @persistence)
 npm run test:critical # @critical in-memory only
 npm run test:persistence  # @persistence with PostgreSQL
+npm run test:concurrency  # in-memory concurrency checks
+npm run test:concurrency:postgres  # concurrency checks with PostgreSQL
 ```
+
+## Robustness
+
+- **Authorization**: register, park, localize and query require the acting `userId` to own the fleet.
+- **Concurrency**: park, localize and register run in PostgreSQL transactions with advisory locks, row locks and unique indexes; deadlock retries are applied automatically.
+- **GPS**: coordinates are rounded to 6 decimals in the domain and in SQL (aligned with occupancy checks).
+- **Validation**: finite lat/lng, normalized plate numbers, inconsistent persisted vehicle state is rejected on read.
 
 Persistence tests require PostgreSQL and:
 

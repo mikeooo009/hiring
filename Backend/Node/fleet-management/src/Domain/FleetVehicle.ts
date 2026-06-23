@@ -3,6 +3,7 @@ import { Location } from './Location';
 import { VehiclePlateNumber } from './VehiclePlateNumber';
 import { VehicleAlreadyParkedAtLocationError } from './errors/VehicleAlreadyParkedAtLocationError';
 import { VehicleAlreadyParkedAtAnotherLocationError } from './errors/VehicleAlreadyParkedAtAnotherLocationError';
+import { VehicleNotParkedError } from './errors/VehicleNotParkedError';
 
 export class FleetVehicle {
   private parkedAt: Location | null;
@@ -28,6 +29,22 @@ export class FleetVehicle {
 
     if (this.parkedAt) {
       throw new VehicleAlreadyParkedAtAnotherLocationError(this.plateNumber, this.parkedAt);
+    }
+
+    this.parkedAt = location;
+    this.parkedOn = actionDate;
+  }
+
+  relocateTo(location: Location, actionDate: ActionDate, referenceDate: ActionDate): void {
+    actionDate.assertNotInFuture(referenceDate);
+    actionDate.assertNotBeforeRegistration(this.registeredAt);
+
+    if (!this.parkedAt) {
+      throw new VehicleNotParkedError(this.plateNumber);
+    }
+
+    if (this.parkedAt.equals(location)) {
+      throw new VehicleAlreadyParkedAtLocationError(this.plateNumber);
     }
 
     this.parkedAt = location;

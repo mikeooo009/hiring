@@ -3,8 +3,8 @@ import { Command } from 'commander';
 import {
   CreateFleetCommand,
   CreateFleetHandler,
-  ParkVehicleCommand,
-  ParkVehicleHandler,
+  LocalizeVehicleCommand,
+  LocalizeVehicleHandler,
   RegisterVehicleCommand,
   RegisterVehicleHandler,
 } from '../src/App';
@@ -16,6 +16,14 @@ import { DomainError } from '../src/Domain/errors/DomainError';
 import { closePool, getPool, registerPoolShutdownHooks } from '../src/Infra/PostgresConnection';
 import { PostgresFleetRepository } from '../src/Infra/PostgresFleetRepository';
 import { migrate } from '../src/Infra/migrate';
+
+function parseCoordinate(value: string, label: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${label} must be a finite number`);
+  }
+  return parsed;
+}
 
 async function main(): Promise<void> {
   registerPoolShutdownHooks();
@@ -40,13 +48,14 @@ async function main(): Promise<void> {
 
     program
       .command('register-vehicle')
-      .arguments('<fleetId> <vehiclePlateNumber>')
+      .arguments('<userId> <fleetId> <vehiclePlateNumber>')
       .description('Register a vehicle into a fleet')
-      .action(async (fleetId: string, vehiclePlateNumber: string) => {
+      .action(async (userId: string, fleetId: string, vehiclePlateNumber: string) => {
         const handler = new RegisterVehicleHandler(repository);
         await handler.handle(
           new RegisterVehicleCommand(
             new FleetId(fleetId),
+            userId,
             new VehiclePlateNumber(vehiclePlateNumber),
             referenceDate,
             referenceDate
@@ -56,20 +65,29 @@ async function main(): Promise<void> {
 
     program
       .command('localize-vehicle')
-      .arguments('<fleetId> <vehiclePlateNumber> <lat> <lng>')
-      .description('Park a vehicle at GPS coordinates')
-      .action(async (fleetId: string, vehiclePlateNumber: string, lat: string, lng: string) => {
-        const handler = new ParkVehicleHandler(repository);
-        await handler.handle(
-          new ParkVehicleCommand(
-            new FleetId(fleetId),
-            new VehiclePlateNumber(vehiclePlateNumber),
-            new Location(Number(lat), Number(lng)),
-            referenceDate,
-            referenceDate
-          )
-        );
-      });
+      .arguments('<userId> <fleetId> <vehiclePlateNumber> <lat> <lng>')
+      .description('Park or relocate a vehicle at GPS coordinates')
+      .action(
+        async (
+          userId: string,
+          fleetId: string,
+          vehiclePlateNumber: string,
+          lat: string,
+          lng: string
+        ) => {
+          const handler = new LocalizeVehicleHandler(repository);
+          await handler.handle(
+            new LocalizeVehicleCommand(
+              new FleetId(fleetId),
+              userId,
+              new VehiclePlateNumber(vehiclePlateNumber),
+              new Location(parseCoordinate(lat, 'Latitude'), parseCoordinate(lng, 'Longitude')),
+              referenceDate,
+              referenceDate
+            )
+          );
+        }
+      );
 
     await program.parseAsync(process.argv);
   } finally {

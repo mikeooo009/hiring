@@ -5,6 +5,7 @@ import { VehiclePlateNumber } from '../Domain/VehiclePlateNumber';
 export class RegisterVehicleCommand {
   constructor(
     readonly fleetId: FleetId,
+    readonly userId: string,
     readonly plateNumber: VehiclePlateNumber,
     readonly actionDate: ActionDate,
     readonly referenceDate: ActionDate

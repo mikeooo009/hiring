@@ -1,13 +1,16 @@
 import { FleetNotFoundError } from '../Domain/errors/FleetNotFoundError';
 import { LocationAlreadyOccupiedError } from '../Domain/errors/LocationAlreadyOccupiedError';
 import { VehicleAlreadyParkedAtAnotherLocationError } from '../Domain/errors/VehicleAlreadyParkedAtAnotherLocationError';
+import { VehicleAlreadyParkedAtLocationError } from '../Domain/errors/VehicleAlreadyParkedAtLocationError';
 import { FleetRepository } from '../Domain/FleetRepository';
+import { assertFleetAccess } from './fleetAccess';
 import { ParkVehicleCommand } from './ParkVehicleCommand';
 
 export async function executeParkVehicleWorkflow(
   fleetRepository: FleetRepository,
   command: ParkVehicleCommand
 ): Promise<void> {
+  await assertFleetAccess(fleetRepository, command.fleetId, command.userId);
   await assertLocationIsFree(fleetRepository, command);
   await assertVehicleNotParkedElsewhere(fleetRepository, command);
 
@@ -35,8 +38,7 @@ async function assertLocationIsFree(
   }
 
   const isSameVehicle =
-    occupancy.fleetId.equals(command.fleetId) &&
-    occupancy.plateNumber.equals(command.plateNumber);
+    occupancy.fleetId.equals(command.fleetId) && occupancy.plateNumber.equals(command.plateNumber);
 
   if (!isSameVehicle) {
     throw new LocationAlreadyOccupiedError(command.location, occupancy.plateNumber);
@@ -59,3 +61,12 @@ async function assertVehicleNotParkedElsewhere(
     throw new VehicleAlreadyParkedAtAnotherLocationError(command.plateNumber, parking.location);
   }
 }
+
+export async function assertLocationIsFreeForVehicle(
+  fleetRepository: FleetRepository,
+  command: ParkVehicleCommand
+): Promise<void> {
+  await assertLocationIsFree(fleetRepository, command);
+}
+
+export { VehicleAlreadyParkedAtLocationError };

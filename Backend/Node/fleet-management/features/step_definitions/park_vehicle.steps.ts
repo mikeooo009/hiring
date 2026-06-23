@@ -39,13 +39,18 @@ Given('the other vehicle has been parked at this location', async function (this
 
 Given('another vehicle registered in the other fleet', async function (this: FleetWorld) {
   this.otherPlateNumber = new VehiclePlateNumber('XYZ-789');
-  await this.registerVehicle(this.otherFleetId, this.otherPlateNumber);
+  await this.registerVehicle(this.otherFleetId, this.otherPlateNumber, this.otherUserId);
 });
 
 Given(
   'the other fleet vehicle has been parked at this location',
   async function (this: FleetWorld) {
-    await this.parkVehicle(this.otherFleetId, this.otherPlateNumber, this.location);
+    await this.parkVehicle(
+      this.otherFleetId,
+      this.otherPlateNumber,
+      this.location,
+      this.otherUserId
+    );
   }
 );
 
@@ -70,7 +75,12 @@ When('I try to park my vehicle at the second location', async function (this: Fl
 When(
   'I try to park this vehicle in the other fleet at the second location',
   async function (this: FleetWorld) {
-    await this.tryParkVehicle(this.otherFleetId, this.plateNumber, this.secondLocation);
+    await this.tryParkVehicle(
+      this.otherFleetId,
+      this.plateNumber,
+      this.secondLocation,
+      this.otherUserId
+    );
   }
 );
 

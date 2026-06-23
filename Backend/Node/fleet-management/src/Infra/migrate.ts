@@ -10,6 +10,7 @@ function readMigration(filename: string): string {
 export async function migrate(): Promise<void> {
   await getPool().query(readMigration('001_init.sql'));
   await getPool().query(readMigration('002_concurrency.sql'));
+  await getPool().query(readMigration('003_remove_altitude.sql'));
 }
 
 export async function rollback(): Promise<void> {

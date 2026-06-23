@@ -43,6 +43,16 @@ export class Fleet {
     this.getVehicle(plateNumber).parkAt(location, actionDate, referenceDate);
   }
 
+  relocateVehicle(
+    plateNumber: VehiclePlateNumber,
+    location: Location,
+    actionDate: ActionDate,
+    referenceDate: ActionDate
+  ): void {
+    this.assertLocationIsFree(location, plateNumber);
+    this.getVehicle(plateNumber).relocateTo(location, actionDate, referenceDate);
+  }
+
   findVehicleAtLocation(location: Location): VehiclePlateNumber | null {
     for (const vehicle of this.vehicles.values()) {
       if (vehicle.isParkedAt(location)) {

@@ -8,22 +8,28 @@ import { RegisterVehicleHandler } from '../src/App/RegisterVehicleHandler';
 import { CreateFleetCommand } from '../src/App/CreateFleetCommand';
 import { RegisterVehicleCommand } from '../src/App/RegisterVehicleCommand';
 import { VehicleAlreadyParkedAtAnotherLocationError } from '../src/Domain/errors/VehicleAlreadyParkedAtAnotherLocationError';
+import { VehicleAlreadyRegisteredInFleetError } from '../src/Domain/errors/VehicleAlreadyRegisteredInFleetError';
 import { LocationAlreadyOccupiedError } from '../src/Domain/errors/LocationAlreadyOccupiedError';
 import { getPool, closePool } from '../src/Infra/PostgresConnection';
 import { migrate } from '../src/Infra/migrate';
 import { PostgresFleetRepository } from '../src/Infra/PostgresFleetRepository';
 import { InMemoryFleetRepository } from '../src/Infra/InMemoryFleetRepository';
 
-async function runConcurrentParkSameVehicleTest(repositoryName: string, repository: PostgresFleetRepository | InMemoryFleetRepository): Promise<void> {
+const USER_ID = 'user-1';
+
+async function runConcurrentParkSameVehicleTest(
+  repositoryName: string,
+  repository: PostgresFleetRepository | InMemoryFleetRepository
+): Promise<void> {
   const createFleet = new CreateFleetHandler(repository);
   const registerVehicle = new RegisterVehicleHandler(repository);
   const parkVehicle = new ParkVehicleHandler(repository);
 
   const referenceDate = ActionDate.parse('2024-06-01');
-  const fleetId = await createFleet.handle(new CreateFleetCommand('user-1'));
+  const fleetId = await createFleet.handle(new CreateFleetCommand(USER_ID));
   const plate = new VehiclePlateNumber('ABC-123');
   await registerVehicle.handle(
-    new RegisterVehicleCommand(fleetId, plate, referenceDate, referenceDate)
+    new RegisterVehicleCommand(fleetId, USER_ID, plate, referenceDate, referenceDate)
   );
 
   const locationA = new Location(48.8566, 2.3522);
@@ -31,32 +37,19 @@ async function runConcurrentParkSameVehicleTest(repositoryName: string, reposito
 
   const results = await Promise.allSettled([
     parkVehicle.handle(
-      new ParkVehicleCommand(fleetId, plate, locationA, referenceDate, referenceDate)
+      new ParkVehicleCommand(fleetId, USER_ID, plate, locationA, referenceDate, referenceDate)
     ),
     parkVehicle.handle(
-      new ParkVehicleCommand(fleetId, plate, locationB, referenceDate, referenceDate)
+      new ParkVehicleCommand(fleetId, USER_ID, plate, locationB, referenceDate, referenceDate)
     ),
   ]);
 
-  const fulfilled = results.filter((result) => result.status === 'fulfilled');
-  const rejected = results.filter(
-    (result): result is PromiseRejectedResult => result.status === 'rejected'
+  assertOneSuccessOneFailure(
+    repositoryName,
+    'concurrent park same vehicle',
+    results,
+    VehicleAlreadyParkedAtAnotherLocationError
   );
-
-  if (fulfilled.length !== 1 || rejected.length !== 1) {
-    throw new Error(
-      `[${repositoryName}] expected 1 success and 1 failure, got ${fulfilled.length} success / ${rejected.length} failure`
-    );
-  }
-
-  const error = rejected[0].reason;
-  if (!(error instanceof VehicleAlreadyParkedAtAnotherLocationError)) {
-    throw new Error(
-      `[${repositoryName}] expected VehicleAlreadyParkedAtAnotherLocationError, got ${String(error)}`
-    );
-  }
-
-  console.log(`[${repositoryName}] concurrent park same vehicle: OK`);
 }
 
 async function runConcurrentParkSameLocationTest(
@@ -68,27 +61,69 @@ async function runConcurrentParkSameLocationTest(
   const parkVehicle = new ParkVehicleHandler(repository);
 
   const referenceDate = ActionDate.parse('2024-06-01');
-  const fleetId = await createFleet.handle(new CreateFleetCommand('user-1'));
+  const fleetId = await createFleet.handle(new CreateFleetCommand(USER_ID));
   const location = new Location(43.2965, 5.3698);
   const plateA = new VehiclePlateNumber('XYZ-111');
   const plateB = new VehiclePlateNumber('XYZ-222');
 
   await registerVehicle.handle(
-    new RegisterVehicleCommand(fleetId, plateA, referenceDate, referenceDate)
+    new RegisterVehicleCommand(fleetId, USER_ID, plateA, referenceDate, referenceDate)
   );
   await registerVehicle.handle(
-    new RegisterVehicleCommand(fleetId, plateB, referenceDate, referenceDate)
+    new RegisterVehicleCommand(fleetId, USER_ID, plateB, referenceDate, referenceDate)
   );
 
   const results = await Promise.allSettled([
     parkVehicle.handle(
-      new ParkVehicleCommand(fleetId, plateA, location, referenceDate, referenceDate)
+      new ParkVehicleCommand(fleetId, USER_ID, plateA, location, referenceDate, referenceDate)
     ),
     parkVehicle.handle(
-      new ParkVehicleCommand(fleetId, plateB, location, referenceDate, referenceDate)
+      new ParkVehicleCommand(fleetId, USER_ID, plateB, location, referenceDate, referenceDate)
     ),
   ]);
 
+  assertOneSuccessOneFailure(
+    repositoryName,
+    'concurrent park same location',
+    results,
+    LocationAlreadyOccupiedError
+  );
+}
+
+async function runConcurrentRegisterSameVehicleTest(
+  repositoryName: string,
+  repository: PostgresFleetRepository | InMemoryFleetRepository
+): Promise<void> {
+  const createFleet = new CreateFleetHandler(repository);
+  const registerVehicle = new RegisterVehicleHandler(repository);
+
+  const referenceDate = ActionDate.parse('2024-06-01');
+  const fleetId = await createFleet.handle(new CreateFleetCommand(USER_ID));
+  const plate = new VehiclePlateNumber('REG-001');
+
+  const results = await Promise.allSettled([
+    registerVehicle.handle(
+      new RegisterVehicleCommand(fleetId, USER_ID, plate, referenceDate, referenceDate)
+    ),
+    registerVehicle.handle(
+      new RegisterVehicleCommand(fleetId, USER_ID, plate, referenceDate, referenceDate)
+    ),
+  ]);
+
+  assertOneSuccessOneFailure(
+    repositoryName,
+    'concurrent register same vehicle',
+    results,
+    VehicleAlreadyRegisteredInFleetError
+  );
+}
+
+function assertOneSuccessOneFailure(
+  repositoryName: string,
+  label: string,
+  results: PromiseSettledResult<void>[],
+  expectedError: new (...args: never[]) => Error
+): void {
   const fulfilled = results.filter((result) => result.status === 'fulfilled');
   const rejected = results.filter(
     (result): result is PromiseRejectedResult => result.status === 'rejected'
@@ -96,32 +131,42 @@ async function runConcurrentParkSameLocationTest(
 
   if (fulfilled.length !== 1 || rejected.length !== 1) {
     throw new Error(
-      `[${repositoryName}] expected 1 success and 1 failure, got ${fulfilled.length} success / ${rejected.length} failure`
+      `[${repositoryName}] ${label}: expected 1 success and 1 failure, got ${fulfilled.length} success / ${rejected.length} failure`
     );
   }
 
-  const error = rejected[0].reason;
-  if (!(error instanceof LocationAlreadyOccupiedError)) {
+  if (!(rejected[0].reason instanceof expectedError)) {
     throw new Error(
-      `[${repositoryName}] expected LocationAlreadyOccupiedError, got ${String(error)}`
+      `[${repositoryName}] ${label}: expected ${expectedError.name}, got ${String(rejected[0].reason)}`
     );
   }
 
-  console.log(`[${repositoryName}] concurrent park same location: OK`);
+  console.log(`[${repositoryName}] ${label}: OK`);
+}
+
+async function runAllConcurrencyTests(
+  repositoryName: string,
+  repository: PostgresFleetRepository | InMemoryFleetRepository,
+  reset?: () => Promise<void>
+): Promise<void> {
+  await runConcurrentParkSameVehicleTest(repositoryName, repository);
+  await reset?.();
+  await runConcurrentParkSameLocationTest(repositoryName, repository);
+  await reset?.();
+  await runConcurrentRegisterSameVehicleTest(repositoryName, repository);
 }
 
 async function main(): Promise<void> {
-  await runConcurrentParkSameVehicleTest('in-memory', new InMemoryFleetRepository());
-  await runConcurrentParkSameLocationTest('in-memory', new InMemoryFleetRepository());
+  await runAllConcurrencyTests('in-memory', new InMemoryFleetRepository());
 
   if (process.env.FLEET_REPOSITORY === 'postgres') {
     await migrate();
     const pool = getPool();
     const repository = new PostgresFleetRepository(pool);
-    await pool.query('TRUNCATE fleet_vehicles, fleets RESTART IDENTITY CASCADE');
-    await runConcurrentParkSameVehicleTest('postgres', repository);
-    await pool.query('TRUNCATE fleet_vehicles, fleets RESTART IDENTITY CASCADE');
-    await runConcurrentParkSameLocationTest('postgres', repository);
+    const reset = async () => {
+      await pool.query('TRUNCATE fleet_vehicles, fleets RESTART IDENTITY CASCADE');
+    };
+    await runAllConcurrencyTests('postgres', repository, reset);
     await closePool();
   }
 
