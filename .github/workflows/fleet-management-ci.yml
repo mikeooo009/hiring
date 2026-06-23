@@ -1,0 +1,67 @@
+name: Fleet Management CI
+
+on:
+  push:
+    branches:
+      - kais/backend
+  pull_request:
+    branches:
+      - kais/backend
+
+defaults:
+  run:
+    working-directory: Backend/Node/fleet-management
+
+jobs:
+  quality:
+    name: Lint, format & in-memory tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Backend/Node/fleet-management/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run test:critical
+
+  persistence:
+    name: PostgreSQL persistence tests
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://fleet:fleet@localhost:5432/fleet
+      FLEET_REPOSITORY: postgres
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fleet
+          POSTGRES_PASSWORD: fleet
+          POSTGRES_DB: fleet
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Backend/Node/fleet-management/package-lock.json
+
+      - run: npm ci
+      - run: npm run migrate
+      - run: npm run test:persistence
+      - run: npm run test:concurrency:postgres

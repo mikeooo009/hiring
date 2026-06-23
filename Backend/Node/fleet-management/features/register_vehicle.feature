@@ -1,0 +1,51 @@
+Feature: Register a vehicle
+
+    In order to follow many vehicles with my application
+    As an application user
+    I should be able to register my vehicle
+
+    Background:
+        Given today is "2024-06-21"
+
+    @critical
+    Scenario: I can register a vehicle
+        Given my fleet
+        And a vehicle
+        When I register this vehicle into my fleet
+        Then this vehicle should be part of my vehicle fleet
+        And the registration date of my vehicle should be "2024-06-21"
+
+    Scenario: Registration date is stored from the action date
+        Given my fleet
+        And a vehicle
+        And the action date is "2024-06-15"
+        When I register this vehicle into my fleet
+        Then the registration date of my vehicle should be "2024-06-15"
+
+    Scenario: I can't register a vehicle in an unknown fleet
+        Given a vehicle
+        And an unknown fleet
+        When I try to register this vehicle into the unknown fleet
+        Then I should be informed that the fleet was not found
+
+    Scenario: I can't register same vehicle twice
+        Given my fleet
+        And a vehicle
+        And I have registered this vehicle into my fleet
+        When I try to register this vehicle into my fleet
+        Then I should be informed this this vehicle has already been registered into my fleet
+
+    Scenario: Same vehicle can belong to more than one fleet
+        Given my fleet
+        And the fleet of another user
+        And a vehicle
+        And this vehicle has been registered into the other user's fleet
+        When I register this vehicle into my fleet
+        Then this vehicle should be part of my vehicle fleet
+
+    Scenario: I can't register a vehicle with a future date
+        Given my fleet
+        And a vehicle
+        And the action date is "2024-06-22"
+        When I try to register this vehicle into my fleet
+        Then I should be informed that the action date cannot be in the future
