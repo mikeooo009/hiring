@@ -9,9 +9,11 @@ function readMigration(filename: string): string {
 
 export async function migrate(): Promise<void> {
   await getPool().query(readMigration('001_init.sql'));
+  await getPool().query(readMigration('002_concurrency.sql'));
 }
 
 export async function rollback(): Promise<void> {
+  await getPool().query(readMigration('002_down.sql'));
   await getPool().query(readMigration('001_down.sql'));
 }
 

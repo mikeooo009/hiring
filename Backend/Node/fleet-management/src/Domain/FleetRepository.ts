@@ -1,3 +1,4 @@
+import { ParkVehicleCommand } from '../App/ParkVehicleCommand';
 import { Fleet } from './Fleet';
 import { FleetId } from './FleetId';
 import { Location } from './Location';
@@ -11,4 +12,5 @@ export interface FleetRepository {
   save(fleet: Fleet): Promise<void>;
   findVehicleAtLocation(location: Location): Promise<LocationOccupancy | null>;
   findVehicleParking(plateNumber: VehiclePlateNumber): Promise<VehicleParking | null>;
+  parkVehicle(command: ParkVehicleCommand): Promise<void>;
 }
