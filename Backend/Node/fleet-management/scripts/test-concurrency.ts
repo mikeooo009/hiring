@@ -166,6 +166,7 @@ async function main(): Promise<void> {
     const reset = async () => {
       await pool.query('TRUNCATE fleet_vehicles, fleets RESTART IDENTITY CASCADE');
     };
+    await reset();
     await runAllConcurrencyTests('postgres', repository, reset);
     await closePool();
   }
